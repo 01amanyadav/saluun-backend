@@ -1,3 +1,4 @@
+const db = require('../config/db');
 const pool = require("../config/db");
 
 const createUser = async (name,email,password) =>{
@@ -13,12 +14,15 @@ const createUser = async (name,email,password) =>{
 
 const findUserByEmail = async (email)=>{
 
-    const user = await pool.query(
-        "SELECT * FROM users WHERE email=$1",
-        [email]
-    );
+ const result = await db.query(
 
-    return user.rows[0];
+  "SELECT * FROM users WHERE email=$1",
+
+  [email]
+
+ );
+
+ return result.rows[0];
 
 };
 
