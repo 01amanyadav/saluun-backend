@@ -1,79 +1,36 @@
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 const asyncHandler = require("../utils/asyncHandler");
-
-const {
- createUser,
- findUserByEmail
-} = require("../models/userModel");
+const { formatSuccessResponse, formatErrorResponse } = require("../utils/response");
+const AuthService = require("../services/authService");
 
 
-exports.registerUser = asyncHandler(async (req,res)=>{
+exports.registerUser = asyncHandler(async (req, res) => {
+ const { name, email, password } = req.body;
 
- const { name,email,password } = req.body;
+ const user = await AuthService.register(name, email, password);
 
- if(!name || !email || !password){
-
-    const error = new Error("All fields required");
-    error.status = 400;
-    throw error;
-
- }
-
- const hashedPassword = await bcrypt.hash(password,10);
-
- const user = await createUser(
-    name,
-    email,
-    hashedPassword
+ res.status(201).json(
+    formatSuccessResponse(
+       {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+       },
+       "User registered successfully"
+    )
  );
-
- res.json({
-    id:user.id,
-    name:user.name,
-    email:user.email
- });
-
 });
 
 
+exports.loginUser = asyncHandler(async (req, res) => {
+ const { email, password } = req.body;
 
-exports.loginUser = asyncHandler(async (req,res)=>{
+ const result = await AuthService.login(email, password);
 
- const { email,password } = req.body;
-
- const user = await findUserByEmail(email);
-
- if(!user){
-
-    const error = new Error("User not found");
-    error.status = 400;
-    throw error;
-
- }
-
- const validPassword = await bcrypt.compare(
-    password,
-    user.password
+ res.status(200).json(
+    formatSuccessResponse(
+       result,
+       "Login successful"
+    )
  );
-
- if(!validPassword){
-
-    const error = new Error("Wrong password");
-    error.status = 400;
-    throw error;
-
- }
-
- const token = jwt.sign(
- {
-  id:user.id,
-  role:user.role
- },
- process.env.JWT_SECRET,
- { expiresIn: "1d" }
-);
-
- res.json({token});
-
 });

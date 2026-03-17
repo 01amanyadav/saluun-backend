@@ -1,100 +1,91 @@
-const { getAllSalons, getSalonById, getSalonsByOwner, searchSalons, filterSalons, createSalon, updateSalon, deleteSalon } = require("../models/shopModel");
 const asyncHandler = require("../utils/asyncHandler");
+const { formatSuccessResponse } = require("../utils/response");
+const SalonService = require("../services/salonService");
 const db = require("../config/db");
 
+
 const getSalons = asyncHandler(async (req, res) => {
-    const salons = await getAllSalons();
-    res.json(salons);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    
+    const result = await SalonService.getAllSalonsWithPagination(page, limit);
+    res.json(formatSuccessResponse(result, "Salons fetched successfully"));
 });
+
 
 const getSalon = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const salon = await getSalonById(id);
-    
-    if (!salon) {
-        const error = new Error("Salon not found");
-        error.status = 404;
-        throw error;
-    }
-    
-    res.json(salon);
+    const salon = await SalonService.getSalonDetails(id);
+    res.json(formatSuccessResponse(salon, "Salon details fetched"));
 });
+
 
 const createNewSalon = asyncHandler(async (req, res) => {
     const { name, location, description, phone, email, openingTime, closingTime } = req.body;
     const ownerId = req.user.id;
 
-    if (!name || !location) {
-        const error = new Error("Name and location are required");
-        error.status = 400;
-        throw error;
-    }
+    const salonData = {
+        name,
+        location,
+        description,
+        phone,
+        email,
+        openingTime,
+        closingTime
+    };
 
-    const salon = await createSalon(ownerId, name, location, description, phone, email, openingTime, closingTime);
-    res.status(201).json(salon);
+    const salon = await SalonService.createNewSalon(ownerId, salonData);
+    res.status(201).json(formatSuccessResponse(salon, "Salon created successfully"));
 });
+
 
 const updateSalonDetails = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const salon = await getSalonById(id);
+    const ownerId = req.user.id;
 
-    if (!salon) {
-        const error = new Error("Salon not found");
-        error.status = 404;
-        throw error;
-    }
-
-    if (salon.owner_id !== req.user.id && req.user.role !== "admin") {
-        const error = new Error("Unauthorized to update this salon");
-        error.status = 403;
-        throw error;
-    }
-
-    const updatedSalon = await updateSalon(id, req.body);
-    res.json(updatedSalon);
+    const updatedSalon = await SalonService.updateSalonInfo(id, ownerId, req.body);
+    res.json(formatSuccessResponse(updatedSalon, "Salon updated successfully"));
 });
+
 
 const deleteSalonById = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const salon = await getSalonById(id);
+    const ownerId = req.user.id;
 
-    if (!salon) {
-        const error = new Error("Salon not found");
-        error.status = 404;
-        throw error;
-    }
-
-    if (salon.owner_id !== req.user.id && req.user.role !== "admin") {
-        const error = new Error("Unauthorized to delete this salon");
-        error.status = 403;
-        throw error;
-    }
-
-    const deletedSalon = await deleteSalon(id);
-    res.json(deletedSalon);
+    const deletedSalon = await SalonService.removeSalon(id, ownerId);
+    res.json(formatSuccessResponse(deletedSalon, "Salon deleted successfully"));
 });
+
 
 const getOwnedSalons = asyncHandler(async (req, res) => {
     const ownerId = req.user.id;
-    const salons = await getSalonsByOwner(ownerId);
-    res.json(salons);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const result = await SalonService.getOwnerSalonsWithPagination(ownerId, page, limit);
+    res.json(formatSuccessResponse(result, "Owner salons fetched"));
 });
+
 
 const searchAndFilter = asyncHandler(async (req, res) => {
     const { search, location, minRating, maxPrice } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
 
-    let salons;
+    let result;
 
     if (search) {
-        salons = await searchSalons(search);
+        result = await SalonService.searchSalonsWithPagination(search, page, limit);
     } else if (location || minRating || maxPrice) {
-        salons = await filterSalons({ location, minRating: parseFloat(minRating), maxPrice: parseFloat(maxPrice) });
+        const filters = { location, minRating: parseFloat(minRating), maxPrice: parseFloat(maxPrice) };
+        result = await SalonService.filterSalonsWithPagination(filters, page, limit);
     } else {
-        salons = await getAllSalons();
+        result = await SalonService.getAllSalonsWithPagination(page, limit);
     }
 
-    res.json(salons);
+    res.json(formatSuccessResponse(result, "Search/filter results"));
 });
+
 
 const getAvailableSlots = asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -106,12 +97,7 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const salon = await getSalonById(id);
-    if (!salon) {
-        const error = new Error("Salon not found");
-        error.status = 404;
-        throw error;
-    }
+    const salon = await SalonService.getSalonDetails(id);
 
     const allSlots = [
         "10:00", "10:30",
@@ -126,15 +112,16 @@ const getAvailableSlots = asyncHandler(async (req, res) => {
     ];
 
     const result = await db.query(
-        "SELECT time FROM bookings WHERE salon_id = $1 AND date = $2 AND status != 'cancelled'",
+        "SELECT time_slot FROM bookings WHERE salon_id = $1 AND booking_date = $2 AND status != 'cancelled'",
         [id, date]
     );
 
-    const bookedSlots = result.rows.map(b => b.time);
+    const bookedSlots = result.rows.map(b => b.time_slot);
     const availableSlots = allSlots.filter(slot => !bookedSlots.includes(slot));
 
-    res.json({ date, availableSlots });
+    res.json(formatSuccessResponse({ date, availableSlots }, "Available slots fetched"));
 });
+
 
 module.exports = {
     getSalons,

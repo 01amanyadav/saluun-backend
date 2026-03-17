@@ -1,104 +1,66 @@
-const { createService, getServicesBySalon, getServiceById, updateService, deleteService } = require("../models/serviceModel");
-const { getSalonById } = require("../models/shopModel");
 const asyncHandler = require("../utils/asyncHandler");
+const { formatSuccessResponse } = require("../utils/response");
+const ServiceManagementService = require("../services/serviceManagementService");
+
+
+const getAllServices = asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const result = await ServiceManagementService.getAllServicesWithPagination(page, limit);
+    res.json(formatSuccessResponse(result, "All services fetched"));
+});
+
 
 const createNewService = asyncHandler(async (req, res) => {
     const { salonId, name, description, price, durationMinutes } = req.body;
+    const ownerId = req.user.id;
 
-    if (!salonId || !name || !price || !durationMinutes) {
-        const error = new Error("Salon ID, name, price, and duration are required");
-        error.status = 400;
-        throw error;
-    }
+    const serviceData = { name, description, price, durationMinutes };
+    const service = await ServiceManagementService.createNewService(salonId, ownerId, serviceData);
 
-    const salon = await getSalonById(salonId);
-    if (!salon) {
-        const error = new Error("Salon not found");
-        error.status = 404;
-        throw error;
-    }
-
-    if (salon.owner_id !== req.user.id && req.user.role !== "admin") {
-        const error = new Error("Unauthorized to add services to this salon");
-        error.status = 403;
-        throw error;
-    }
-
-    const service = await createService(salonId, name, description, price, durationMinutes);
-    res.status(201).json(service);
+    res.status(201).json(formatSuccessResponse(service, "Service created successfully"));
 });
+
 
 const getSalonServices = asyncHandler(async (req, res) => {
     const { salonId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
 
-    const salon = await getSalonById(salonId);
-    if (!salon) {
-        const error = new Error("Salon not found");
-        error.status = 404;
-        throw error;
-    }
-
-    const services = await getServicesBySalon(salonId);
-    res.json(services);
+    const result = await ServiceManagementService.getSalonServicesWithPagination(salonId, page, limit);
+    res.json(formatSuccessResponse(result, "Salon services fetched"));
 });
+
 
 const getService = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    const service = await getServiceById(id);
-    if (!service) {
-        const error = new Error("Service not found");
-        error.status = 404;
-        throw error;
-    }
-
-    res.json(service);
+    const service = await ServiceManagementService.getServiceDetails(id);
+    res.json(formatSuccessResponse(service, "Service details fetched"));
 });
+
 
 const updateServiceDetails = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { name, description, price, durationMinutes } = req.body;
+    const ownerId = req.user.id;
 
-    const service = await getServiceById(id);
-    if (!service) {
-        const error = new Error("Service not found");
-        error.status = 404;
-        throw error;
-    }
-
-    const salon = await getSalonById(service.salon_id);
-    if (salon.owner_id !== req.user.id && req.user.role !== "admin") {
-        const error = new Error("Unauthorized to update this service");
-        error.status = 403;
-        throw error;
-    }
-
-    const updatedService = await updateService(id, name, description, price, durationMinutes);
-    res.json(updatedService);
+    const updatedService = await ServiceManagementService.updateServiceInfo(id, ownerId, req.body);
+    res.json(formatSuccessResponse(updatedService, "Service updated successfully"));
 });
+
 
 const deleteServiceById = asyncHandler(async (req, res) => {
     const { id } = req.params;
+    const ownerId = req.user.id;
 
-    const service = await getServiceById(id);
-    if (!service) {
-        const error = new Error("Service not found");
-        error.status = 404;
-        throw error;
-    }
-
-    const salon = await getSalonById(service.salon_id);
-    if (salon.owner_id !== req.user.id && req.user.role !== "admin") {
-        const error = new Error("Unauthorized to delete this service");
-        error.status = 403;
-        throw error;
-    }
-
-    const deletedService = await deleteService(id);
-    res.json(deletedService);
+    const deletedService = await ServiceManagementService.deleteServiceInfo(id, ownerId);
+    res.json(formatSuccessResponse(deletedService, "Service deleted successfully"));
 });
 
+
 module.exports = {
+    getAllServices,
     createNewService,
     getSalonServices,
     getService,

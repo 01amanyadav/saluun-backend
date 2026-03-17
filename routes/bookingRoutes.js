@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 
 const authMiddleware = require("../middleware/authMiddleware");
+const validate = require("../middleware/validateRequest");
+const { bookingSchema, rescheduleBookingSchema } = require("../validations/schemas");
 
 const {
    bookService,
@@ -21,13 +23,13 @@ router.get("/my-bookings", authMiddleware, myBookings);
 router.get("/:bookingId", authMiddleware, getBooking);
 
 // Book a service
-router.post("/", authMiddleware, bookService);
+router.post("/", authMiddleware, validate(bookingSchema), bookService);
 
 // Cancel booking
 router.put("/:bookingId/cancel", authMiddleware, cancelUserBooking);
 
 // Reschedule booking
-router.put("/:bookingId/reschedule", authMiddleware, rescheduleUserBooking);
+router.put("/:bookingId/reschedule", authMiddleware, validate(rescheduleBookingSchema), rescheduleUserBooking);
 
 // Salon owner routes
 router.get("/salon/:salonId/all", authMiddleware, getSalonAllBookings);
