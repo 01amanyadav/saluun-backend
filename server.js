@@ -2,38 +2,41 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+// Import routes
 const userRoutes = require("./routes/userRoutes");
 const authRoutes = require("./routes/authRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
-const authMiddleware = require("./middleware/authMiddleware");
-const shopRoutes = require("./routes/shopRoutes");
+const salonRoutes = require("./routes/salonRoutes");
+const serviceRoutes = require("./routes/serviceRoutes");
+const ratingRoutes = require("./routes/ratingRoutes");
+const ownerRoutes = require("./routes/ownerRoutes");
+
 const app = express();
 
+// Middleware setup
 app.use(cors());
 app.use(express.json());
 
-app.use("/api/shops", shopRoutes);
+// API Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/salons", salonRoutes);
+app.use("/api/services", serviceRoutes);
+app.use("/api/ratings", ratingRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/owner", ownerRoutes);
 
+// Health check
 app.get("/", (req, res) => {
     res.send("Saluun Backend Running 🚀");
 });
 
-app.use("/api/auth", authRoutes);
-app.use("/api/bookings", bookingRoutes);
+// Error handling middleware
 const errorHandler = require("./middleware/errorMiddleware");
-
 app.use(errorHandler);
 
-app.listen(5000, () => {
-    console.log("Server running on port 5000");
-});
-
-app.get("/api/profile", authMiddleware, (req,res)=>{
-
-    res.json({
-        message:"Protected Data",
-        userId:req.user.id
-    });
-
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
